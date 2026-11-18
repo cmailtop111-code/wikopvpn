@@ -1,0 +1,31 @@
+name: Build Windows client
+on: workflow_dispatch
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyinstaller pillow
+      - name: Make icon
+        run: python -c "from PIL import Image; Image.open('logo.png').convert('RGBA').save('logo.ico', sizes=[(256,256),(64,64),(32,32),(16,16)])"
+      - name: Download Xray-core
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://github.com/XTLS/Xray-core/releases/latest/download/Xray-windows-64.zip -OutFile xray.zip
+          Expand-Archive xray.zip -DestinationPath xray
+      - name: Build exe
+        run: pyinstaller --onefile --noconsole --name WikopVPN --icon logo.ico --add-data "logo.png;." app.py
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory pkg
+          Copy-Item dist/WikopVPN.exe pkg/
+          Copy-Item xray/xray.exe pkg/
+          Copy-Item xray/geoip.dat, xray/geosite.dat pkg/ -ErrorAction SilentlyContinue
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WikopVPN-windows
+          path: pkg
